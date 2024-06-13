@@ -1,5 +1,6 @@
 const TYPE_INT = "int";
 const TYPE_STRING = "string";
+const TYPE_FUNCTION = 'fn';
 
 const LITERAL_SEMICOLON = ";";
 const LITERAL_COMMA = ",";
@@ -9,7 +10,9 @@ const LITERAL_OCURLY = "{";
 const LITERAL_CCURLY = "}";
 const LITERAL_EQUALS = "=";
 const LITERAL_DOUBLE_QUOTE = '"';
+const LITERAL_BACK_SLASH = '/';
 
+const TOKEN_COMMENT = "TOKEN_COMMENT";
 const TOKEN_TYPE = "TOKEN_TYPE";
 const TOKEN_NAME = "TOKEN_NAME";
 const TOKEN_INT = "TOKEN_INT";
@@ -46,11 +49,11 @@ class Token {
     }
 
     display(): string {
-        return `${this.location.display()} ${this.value}`;
+        return `[${this.name.padEnd(TOKEN_LITERAL.length, " ")}]${this.location.display()} ${this.value}`;
     }
 }
 
-class Lexer {
+export class Lexer {
     filePath: string;
     source: string;
     cursor: number;
@@ -145,6 +148,92 @@ class Lexer {
         console.error(this.display());
     }
 
+    tokenizeFunction(): [Token | null, string?] {
+        // NAME
+        let [token, error] = this.nextToken();
+        if (error) {
+            return [null, error];
+        }
+
+        if (token == null) {
+            return [null, `expecting ${TOKEN_NAME}, but got null`];
+        }
+
+        if (token.name !== TOKEN_NAME) {
+            return [null, `expecting ${TOKEN_NAME}, but got ${token.name}`];
+        }
+
+        const name = token.value;
+
+        // OPAREN
+        [token, error] = this.nextToken();
+        if (error) {
+            return [null, error];
+        }
+
+        if (token == null) {
+            return [null, `expecting ${LITERAL_OPAREN}, but got null`];
+        }
+
+        if (token.value !== LITERAL_OPAREN) {
+            return [null, `expecting ${LITERAL_OPAREN}, but got ${token.value}`];
+        }
+
+        // CPAREN
+        [token, error] = this.nextToken();
+        if (error) {
+            return [null, error];
+        }
+
+        if (token == null) {
+            return [null, `expecting ${LITERAL_CPAREN}, but got null`];
+        }
+
+        if (token.value !== LITERAL_CPAREN) {
+            return [null, `expecting ${LITERAL_CPAREN}, but got ${token.value}`];
+        }
+
+        // OCURLY
+        [token, error] = this.nextToken();
+        if (error) {
+            return [null, error];
+        }
+
+        if (token == null) {
+            return [null, `expecting ${LITERAL_OCURLY}, but got null`];
+        }
+
+        if (token.value !== LITERAL_OCURLY) {
+            return [null, `expecting ${LITERAL_OCURLY}, but got ${token.value}`];
+        }
+
+        const tokens: Token[] = [];
+        let ccurlyFound: boolean = false;
+        while (this.isNotEmpty()) {
+            [token, error] = this.nextToken();
+            if (error) {
+                return [null, error];
+            }
+
+            if (token == null) {
+                return [null, `expecting token, but got null`];
+            }
+
+            if (token.name === TOKEN_LITERAL && token.value === LITERAL_CCURLY) {
+                ccurlyFound = true;
+                break;
+            }
+
+            tokens.push(token);
+        }
+
+        if (!ccurlyFound) {
+            return [null, `expecting ${LITERAL_CCURLY}, but got null`];
+        }
+
+        return [null, ""];
+    }
+
     nextToken(): [Token | null, string?] {
         this.skipSpaces();
         while (this.isEmpty()) {
@@ -153,6 +242,36 @@ class Lexer {
 
         const location = this.location();
         const char = this.source[this.cursor];
+
+        if (char == LITERAL_BACK_SLASH) {
+            if (this.isEmpty()) {
+                throw new Error("bad comment");
+            }
+
+            this.advanceCursor();
+            const next = this.source[this.cursor];
+            if (next !== LITERAL_BACK_SLASH) {
+                throw new Error("bad comment 2");
+            }
+
+            this.advanceCursor();
+            this.skipSpaces();
+
+            if (location.row != this.row) {
+                const name = TOKEN_COMMENT;
+                return [new Token(location, name, "")];
+            }
+
+            let value = "";
+            while (this.isNotEmpty() && this.source[this.cursor] !== "\n") {
+                value += this.source[this.cursor];
+                this.advanceCursor();
+            }
+
+            const name = TOKEN_COMMENT;
+            return [new Token(location, name, value)];
+        }
+
         if (this.isAlpha(char)) {
             const index = this.cursor;
             while (this.isNotEmpty() && this.isAlphaNumeric(this.source[this.cursor])) {
@@ -160,6 +279,10 @@ class Lexer {
             }
 
             const value = this.source.substring(index, this.cursor);
+            if (value === TYPE_FUNCTION) {
+                return [new Token(location, TYPE_FUNCTION, value)];
+            }
+
             const name = this.isType(value) ? TOKEN_TYPE : TOKEN_NAME;
             return [new Token(location, name, value)];
         }
@@ -230,118 +353,265 @@ class Lexer {
     }
 }
 
-function parseTokens(tokens: Token[], lang: string): string {
-    let s = "";
-    while (tokens.length > 0) {
-        const token = tokens[0];
-        switch (token.name) {
-            case TOKEN_TYPE:
-                s += parseVariableDeclaration(tokens, lang);
+export class Parser {
+    lexer: Lexer;
+
+    constructor(lexer: Lexer) {
+        this.lexer = lexer;
+    }
+
+    parseTokens(tokens: Token[], lang: string): string {
+        let s = "";
+        switch (lang) {
+            case "go":
+                s += `package main\n\n`;
                 break;
 
-            case TOKEN_NAME:
-                s += parseFunctionCall(tokens, lang);
+            case "php":
+                s += `<?php\n`;
+
+            default:
+                break;
+        }
+
+        while (tokens.length > 0) {
+            const token = tokens[0];
+            switch (token.name) {
+                case TOKEN_TYPE:
+                    s += this.parseVariableDeclaration(tokens, lang);
+                    break;
+
+                case TOKEN_NAME:
+                    s += this.parseFunctionCall(tokens, lang);
+                    break;
+
+                case TYPE_FUNCTION:
+                    s += this.parseFunction(tokens, lang, 1);
+                    break;
+
+                default:
+                    const msg = `${token.location.display()}: expected ${TOKEN_TYPE} or ${TOKEN_NAME}, but got ${token.name}: ${token.value}`;
+                    throw new Error(msg);
+            }
+
+            s += "\n";
+        }
+
+        return s;
+    }
+
+    assertNextTokenName(tokens: Token[], ...tokenNames: string[]): Token | never {
+        const token = tokens.shift() ?? null;
+        if (!token) {
+            const msg = `expected ${tokenNames.join(", ")}, but got null`;
+            throw new Error(msg);
+        }
+
+        if (!tokenNames.includes(token?.name ?? "")) {
+            const msg = `${token.location.display()}: expected ${tokenNames.join(", ")}, but got ${token.name}: ${token.value}`;
+            throw new Error(msg);
+        }
+
+        return token;
+    }
+
+    assertNextTokenLiteral(tokens: Token[], literal: string): Token | never {
+        const token = tokens.shift() ?? null;
+        if (!token) {
+            const msg = `expected ${literal}, but got null`;
+            throw new Error(msg);
+        }
+
+        if (token.value !== literal) {
+            const msg = `${token.location.display()}: expected ${literal}, but got ${token.value}`;
+            throw new Error(msg);
+        }
+
+        return token;
+    }
+
+    assertString(expected: string, actual: string): void | never {
+        if (expected !== actual) {
+            const msg = `expected string ${expected}, but got ${actual}`;
+            throw new Error(msg);
+        }
+    }
+
+    parseVariableDeclaration(tokens: Token[], lang: string): string {
+        const tokenType = this.assertNextTokenName(tokens, TOKEN_TYPE);
+        const tokenName = this.assertNextTokenName(tokens, TOKEN_NAME);
+        const tokenEquals = this.assertNextTokenName(tokens, TOKEN_LITERAL);
+        this.assertString(tokenEquals.value, LITERAL_EQUALS);
+        let s = "";
+
+        switch (tokenType.value) {
+            case TYPE_STRING:
+                {
+                    const tokenValue = this.assertNextTokenName(tokens, TOKEN_STRING);
+                    switch (lang) {
+                        case "go":
+                            s = `var ${tokenName.value} ${tokenType.value} = "${tokenValue.value}"`;
+                            break;
+
+                        case "php":
+                            s = `$${tokenName.value} = (${tokenType.value}) "${tokenValue.value}";`;
+                            break;
+
+                        default:
+                            s = `const ${tokenName.value} = "${tokenValue.value}";`;
+                            break;
+                    }
+                    break;
+                }
+
+            default:
+                {
+                    const tokenValue = this.assertNextTokenName(tokens, TOKEN_INT);
+                    switch (lang) {
+                        case "go":
+                            s = `var ${tokenName.value} ${tokenType.value} = ${tokenValue.value}`;
+                            break;
+
+                        case "php":
+                            s = `$${tokenName.value} = (${tokenType.value}) ${tokenValue.value};`;
+                            break;
+
+                        default:
+                            s = `const ${tokenName.value} = ${tokenValue.value};`;
+                            break;
+                    }
+                    break;
+                }
+        }
+
+        const tokenSemicolon = this.assertNextTokenName(tokens, TOKEN_LITERAL);
+        this.assertString(tokenSemicolon.value, LITERAL_SEMICOLON);
+        return s;
+    }
+
+    parseFunctionCall(tokens: Token[], lang: string): string {
+        // name
+        const tokenName = this.assertNextTokenName(tokens, TOKEN_NAME);
+
+        // (
+        const tokenOparen = this.assertNextTokenName(tokens, TOKEN_LITERAL);
+        this.assertString(tokenOparen.value, LITERAL_OPAREN);
+
+        // arg
+        const tokenArg = this.assertNextTokenName(tokens, TOKEN_NAME, TOKEN_INT, TOKEN_STRING);
+        if (tokenArg.name === TOKEN_STRING) {
+            tokenArg.value = `"${tokenArg.value}"`;
+        }
+
+        // )
+        const tokenCparen = this.assertNextTokenName(tokens, TOKEN_LITERAL);
+        this.assertString(tokenCparen.value, LITERAL_CPAREN);
+
+        // ;
+        const tokenSemicolon = this.assertNextTokenName(tokens, TOKEN_LITERAL);
+        this.assertString(tokenSemicolon.value, LITERAL_SEMICOLON);
+
+        switch (tokenName.value) {
+            case "print":
+                switch (lang) {
+                    case "go":
+                        return `println(${tokenArg.value})`;
+
+
+                    case "php":
+                        if (tokenArg.name === TOKEN_NAME) {
+                            return `printf("%s\\n", $${tokenArg.value});`;
+                        }
+
+                        return `printf(${tokenArg.value});`;
+
+                    default:
+                        return `console.log(${tokenArg.value});`;
+                }
+
+            default:
+                switch (lang) {
+                    case "go":
+                        return `${tokenName.value}(${tokenArg.value})`;
+
+
+                    case "php":
+                        if (tokenArg.name === TOKEN_NAME) {
+                            return `${tokenName.value}("%s\\n", $${tokenArg.value});`;
+                        }
+
+                        return `${tokenName.value}(${tokenArg.value});`;
+
+                    default:
+                        return `${tokenName.value}(${tokenArg.value});`;
+                }
+        }
+    }
+
+    generateIndent(layer: number): string {
+        let s = "";
+        const size = layer * 4;
+        for (let i = 1; i <= size; i++) {
+            s += " ";
+        };
+
+        return s;
+    }
+
+    parseFunction(tokens: Token[], lang: string, layer: number): string {
+        const previousIndent = this.generateIndent(layer - 1);
+        const indent = this.generateIndent(layer);
+        let token = this.assertNextTokenName(tokens, TYPE_FUNCTION);
+        token = this.assertNextTokenName(tokens, TOKEN_NAME);
+        const name = token.value;
+        this.assertNextTokenLiteral(tokens, LITERAL_OPAREN);
+        this.assertNextTokenLiteral(tokens, LITERAL_CPAREN);
+        this.assertNextTokenLiteral(tokens, LITERAL_OCURLY);
+
+        let s = "";
+        switch (lang) {
+            case "go":
+                if (name === "main") {
+                    s += `func ${previousIndent}${name}() {\n`;
+                    break;
+                }
+
+                s += `${previousIndent}${name} := func() {\n`;
                 break;
 
             default:
-                const msg = `${token.location.display()}: expected ${TOKEN_TYPE} or ${TOKEN_NAME}, but got ${token.name}: ${token.value}`;
-                throw new Error(msg);
+                s += `${previousIndent}function ${name}() {\n`;
+                break;
         }
 
-        s += "\n";
-    }
+        while (tokens.length > 0) {
+            const fnToken = tokens[0];
 
-    return s;
-}
-
-function assertNextTokenName(tokens: Token[], ...tokenNames: string[]): Token | never {
-    const token = tokens.shift() ?? null;
-    if (!token) {
-        const msg = `expected ${tokenNames.join(", ")}, but got null`;
-        throw new Error(msg);
-    }
-
-    if (!tokenNames.includes(token?.name ?? "")) {
-        const msg = `${token.location.display()}: expected ${tokenNames.join(", ")}, but got ${token.name}: ${token.value}`;
-        throw new Error(msg);
-    }
-
-    return token;
-}
-
-function assertString(expected: string, actual: string): void | never {
-    if (expected !== actual) {
-        const msg = `expected string ${expected}, but got ${actual}`;
-        throw new Error(msg);
-    }
-}
-
-function parseVariableDeclaration(tokens: Token[], lang: string): string {
-    const tokenType = assertNextTokenName(tokens, TOKEN_TYPE);
-    const tokenName = assertNextTokenName(tokens, TOKEN_NAME);
-    const tokenEquals = assertNextTokenName(tokens, TOKEN_LITERAL);
-    assertString(tokenEquals.value, LITERAL_EQUALS);
-    let s = "";
-
-    switch (tokenType.value) {
-        case TYPE_STRING:
-            {
-                const tokenValue = assertNextTokenName(tokens, TOKEN_STRING);
-                switch (lang) {
-                    case "php":
-                        s = `$${tokenName.value} = (${tokenType.value}) "${tokenValue.value}";`;
-                        break;
-
-                    default:
-                        s = `const ${tokenName.value} = "${tokenValue.value}";`;
-                        break;
-                }
+            if (fnToken.value === LITERAL_CCURLY) {
                 break;
             }
 
-        default:
-            {
-                const tokenValue = assertNextTokenName(tokens, TOKEN_INT);
-                switch (lang) {
-                    case "php":
-                        s = `$${tokenName.value} = (${tokenType.value}) ${tokenValue.value};`;
-                        break;
+            switch (fnToken.name) {
+                case TOKEN_TYPE:
+                    s += indent + this.parseVariableDeclaration(tokens, lang) + "\n";
+                    break;
 
-                    default:
-                        s = `const ${tokenName.value} = ${tokenValue.value};`;
-                        break;
-                }
-                break;
-            }
-    }
+                case TOKEN_NAME:
+                    s += indent + this.parseFunctionCall(tokens, lang) + "\n";
+                    break;
 
-    const tokenSemicolon = assertNextTokenName(tokens, TOKEN_LITERAL);
-    assertString(tokenSemicolon.value, LITERAL_SEMICOLON);
-    return s;
-}
-
-function parseFunctionCall(tokens: Token[], lang: string): string {
-    const tokenName = assertNextTokenName(tokens, TOKEN_NAME);
-    const tokenOparen = assertNextTokenName(tokens, TOKEN_LITERAL);
-    assertString(tokenOparen.value, LITERAL_OPAREN);
-    const tokenArg = assertNextTokenName(tokens, TOKEN_NAME, TOKEN_INT, TOKEN_STRING);
-    const tokenCparen = assertNextTokenName(tokens, TOKEN_LITERAL);
-    assertString(tokenCparen.value, LITERAL_CPAREN);
-    const tokenSemicolon = assertNextTokenName(tokens, TOKEN_LITERAL);
-    assertString(tokenSemicolon.value, LITERAL_SEMICOLON);
-
-    switch (tokenName.value) {
-        case "print":
-            switch (lang) {
-                case "php":
-                    return `printf("%s\\n", $${tokenArg.value});`;
+                case TYPE_FUNCTION:
+                    s += this.parseFunction(tokens, lang, layer + 1) + "\n";
+                    break;
 
                 default:
-                    return `console.log(${tokenArg.value});`;
+                    break;
             }
+        }
 
-        default:
-            throw new Error(`${tokenName.location.display()} undefined function: ${tokenName.value}`);
+        this.assertNextTokenLiteral(tokens, LITERAL_CCURLY);
+        s += `${previousIndent}}`;
+        return s;
     }
 }
 
@@ -355,6 +625,7 @@ export function parse(source: string, lang: string): string {
         throw new Error(error);
     }
 
-    const s = parseTokens(tokens, lang);
+    const parser = new Parser(lexer);
+    const s = parser.parseTokens(tokens, lang);
     return s;
 }

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+
+<head>
+	<meta charset="utf-8" />
+	<base href="/mai-lang/" />
+	<link rel="icon" href="./favicon.png" />
+	<link rel="manifest" href="manifest.json" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<script src="js/fork-me-baby.min.js"></script>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+		integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A=="
+		crossorigin="anonymous" referrerpolicy="no-referrer" />
+	
+		<link href="./_app/immutable/assets/0.Dhdu-g02.css" rel="stylesheet">
+		<link href="./_app/immutable/assets/2.BFdCFzKv.css" rel="stylesheet">
+		<link rel="modulepreload" href="./_app/immutable/entry/start.BRipp17N.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/entry.CddHlOVE.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/scheduler.Bmg8oFKD.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/index.D_GRTHN4.js">
+		<link rel="modulepreload" href="./_app/immutable/entry/app.XDy6R5qF.js">
+		<link rel="modulepreload" href="./_app/immutable/chunks/index.B0U4Du-Q.js">
+		<link rel="modulepreload" href="./_app/immutable/nodes/0.DOgc3pnQ.js">
+		<link rel="modulepreload" href="./_app/immutable/nodes/2.BIZWp6wa.js">
+</head>
+
+<body data-sveltekit-preload-data="hover">
+	<div style="display: contents">  <div class="app svelte-15hr64"><main class="svelte-15hr64"><section class="svelte-u22agc"> </section></main> </div> 
+			
+			<script>
+				{
+					__sveltekit_15j21lo = {
+						base: new URL(".", location).pathname.slice(0, -1)
+					};
+
+					const element = document.currentScript.parentElement;
+
+					const data = [null,null];
+
+					Promise.all([
+						import("./_app/immutable/entry/start.BRipp17N.js"),
+						import("./_app/immutable/entry/app.XDy6R5qF.js")
+					]).then(([kit, app]) => {
+						kit.start(app, element, {
+							node_ids: [0, 2],
+							data,
+							form: null,
+							error: null
+						});
+					});
+				}
+			</script>
+		</div>
+
+	<script>
+		forkMeBaby({
+			position: "top-right",
+			link: "https://github.com/FS-Frost/mai-lang",
+			sticky: false,
+		});
+
+		if ("serviceWorker" in navigator) {
+			window.addEventListener("load", function () {
+				navigator.serviceWorker
+					.register("worker.js")
+					.then(
+						function (registration) {
+							console.log("Worker registration successful", registration.scope);
+						},
+						function (err) {
+							console.log("Worker registration failed", err);
+						}
+					)
+					.catch(function (err) {
+						console.log(err);
+					});
+			});
+		} else {
+			console.log("Service Worker is not supported by browser.");
+		}
+	</script>
+</body>
+
+</html>

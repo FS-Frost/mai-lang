@@ -2,16 +2,17 @@
     import { Lexer, Parser, parse } from "$lib/lexer";
     import { sourceText } from "$lib/sourceText";
     import { onMount } from "svelte";
+    import Editor from "../Editor.svelte";
 
+    let editor: Editor;
+    let editorGO: Editor;
+    let editorJS: Editor;
+    let editorPHP: Editor;
     let source: string = sourceText;
-    let resultGO: string = "";
-    let resultJS: string = "";
-    let resultPHP: string = "";
     let errorMessage: string = "";
 
     function parseGO(): void {
-        resultGO = "";
-
+        editorGO.setValue("");
         const filePath = "source.mai";
         const lexer = new Lexer(filePath, source);
         const [tokens, error] = lexer.tokenize();
@@ -22,14 +23,13 @@
         }
 
         console.log({ tokens });
-
         const parser = new Parser(lexer);
-        resultGO = parser.parseTokens([...tokens], "go");
+        const result = parser.parseTokens([...tokens], "go");
+        editorGO.setValue(result);
     }
 
     function parseJS(): void {
-        resultJS = "";
-
+        editorJS.setValue("");
         const filePath = "source.mai";
         const lexer = new Lexer(filePath, source);
         const [tokens, error] = lexer.tokenize();
@@ -40,12 +40,12 @@
         }
 
         const parser = new Parser(lexer);
-        resultJS = parser.parseTokens([...tokens], "js");
+        const result = parser.parseTokens([...tokens], "js");
+        editorJS.setValue(result);
     }
 
     function parsePHP(): void {
-        resultPHP = "";
-
+        editorPHP.setValue("");
         const filePath = "source.mai";
         const lexer = new Lexer(filePath, source);
         const [tokens, error] = lexer.tokenize();
@@ -56,7 +56,8 @@
         }
 
         const parser = new Parser(lexer);
-        resultPHP = parser.parseTokens([...tokens], "php");
+        const result = parser.parseTokens([...tokens], "php");
+        editorPHP.setValue(result);
     }
 
     function parseSource(): void {
@@ -71,9 +72,47 @@
         }
     }
 
-    onMount(() => {
+    function updateCode(code: string): void {
+        source = code;
+        parseSource();
+    }
+
+    onMount(async () => {
+        let editorInitError = await editor.init();
+        if (editorInitError.length > 0) {
+            const title = `ERROR: ${editorInitError}`;
+            errorMessage = `${title}. Try reloading the page.`;
+            console.log("show log", title);
+            return;
+        }
+
+        editorInitError = await editorGO.init();
+        if (editorInitError.length > 0) {
+            const title = `ERROR: ${editorInitError}`;
+            errorMessage = `${title}. Try reloading the page.`;
+            console.log("show log", title);
+            return;
+        }
+
+        editorInitError = await editorJS.init();
+        if (editorInitError.length > 0) {
+            const title = `ERROR: ${editorInitError}`;
+            errorMessage = `${title}. Try reloading the page.`;
+            console.log("show log", title);
+            return;
+        }
+
+        editorInitError = await editorPHP.init();
+        if (editorInitError.length > 0) {
+            const title = `ERROR: ${editorInitError}`;
+            errorMessage = `${title}. Try reloading the page.`;
+            console.log("show log", title);
+            return;
+        }
+
         source = source.replace("\n", "");
         parseSource();
+        editor.setValue(source);
     });
 </script>
 
@@ -85,56 +124,46 @@
 
 <p class="has-text-danger">{errorMessage}&nbsp;</p>
 
+<Editor
+    bind:this={editor}
+    lang="rust"
+    on:change={(e) => updateCode(e.detail)}
+/>
+
 <div class="langs">
-    <div class="field">
-        <label class="label" for="">MAI source code</label>
-        <div class="control">
-            <textarea
-                class="textarea"
-                bind:value={source}
-                on:keyup={() => parseSource()}
-            ></textarea>
-        </div>
-    </div>
-
-    <div class="field">
+    <div class="lang">
         <label class="label" for="">Go</label>
-        <div class="control">
-            <textarea class="textarea" value={resultGO} readonly></textarea>
-        </div>
+        <Editor bind:this={editorGO} lang="go" readonly />
     </div>
 
-    <div class="field">
-        <label class="label" for="">JS</label>
-        <div class="control">
-            <textarea class="textarea" value={resultJS} readonly></textarea>
-        </div>
+    <div class="lang">
+        <label class="label" for="">JavaScript</label>
+        <Editor bind:this={editorJS} lang="javascript" readonly />
     </div>
 
-    <div class="field">
+    <div class="lang">
         <label class="label" for="">PHP</label>
-        <div class="control">
-            <textarea class="textarea" value={resultPHP} readonly></textarea>
-        </div>
+        <Editor bind:this={editorPHP} lang="php" readonly />
     </div>
 </div>
 
 <style>
-    .langs {
-        display: flex;
+    label {
         width: 100%;
+        text-align: center;
     }
 
     p {
         width: 100%;
     }
 
-    .field {
+    .langs {
+        display: flex;
         width: 100%;
     }
 
-    textarea {
+    .lang {
         width: 100%;
-        height: 100vh;
+        justify-content: space-evenly;
     }
 </style>

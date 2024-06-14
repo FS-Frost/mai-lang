@@ -498,14 +498,20 @@ export class Parser {
         this.assertString(tokenOparen.value, LITERAL_OPAREN);
 
         // arg
-        const tokenArg = this.assertNextTokenName(tokens, TOKEN_NAME, TOKEN_INT, TOKEN_STRING);
+        const tokenArg = this.assertNextTokenName(tokens, TOKEN_NAME, TOKEN_INT, TOKEN_STRING, TOKEN_LITERAL);
         if (tokenArg.name === TOKEN_STRING) {
             tokenArg.value = `"${tokenArg.value}"`;
         }
 
-        // )
-        const tokenCparen = this.assertNextTokenName(tokens, TOKEN_LITERAL);
-        this.assertString(tokenCparen.value, LITERAL_CPAREN);
+        const argProvided = tokenArg.name !== TOKEN_LITERAL && tokenArg.value !== LITERAL_CPAREN;
+        let arg = "";
+        if (argProvided) {
+            arg = tokenArg.value;
+
+            // )
+            const tokenCparen = this.assertNextTokenName(tokens, TOKEN_LITERAL);
+            this.assertString(tokenCparen.value, LITERAL_CPAREN);
+        }
 
         // ;
         const tokenSemicolon = this.assertNextTokenName(tokens, TOKEN_LITERAL);
@@ -515,35 +521,35 @@ export class Parser {
             case "print":
                 switch (lang) {
                     case "go":
-                        return `println(${tokenArg.value})`;
+                        return `println(${arg})`;
 
 
                     case "php":
                         if (tokenArg.name === TOKEN_NAME) {
-                            return `printf("%s\\n", $${tokenArg.value});`;
+                            return `printf("%s\\n", $${arg});`;
                         }
 
-                        return `printf(${tokenArg.value});`;
+                        return `printf(${arg});`;
 
                     default:
-                        return `console.log(${tokenArg.value});`;
+                        return `console.log(${arg});`;
                 }
 
             default:
                 switch (lang) {
                     case "go":
-                        return `${tokenName.value}(${tokenArg.value})`;
+                        return `${tokenName.value}(${arg})`;
 
 
                     case "php":
                         if (tokenArg.name === TOKEN_NAME) {
-                            return `${tokenName.value}("%s\\n", $${tokenArg.value});`;
+                            return `${tokenName.value}("%s\\n", $${arg});`;
                         }
 
-                        return `${tokenName.value}(${tokenArg.value});`;
+                        return `${tokenName.value}(${arg});`;
 
                     default:
-                        return `${tokenName.value}(${tokenArg.value});`;
+                        return `${tokenName.value}(${arg});`;
                 }
         }
     }

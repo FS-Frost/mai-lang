@@ -8,4 +8,5 @@ func main() {
     customPrint := func() {
         println("called from func")
     }
+    customPrint()
 }

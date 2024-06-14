@@ -6,4 +6,5 @@ function main() {
     function customPrint() {
         console.log("called from func");
     }
+    customPrint();
 }

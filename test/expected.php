@@ -7,4 +7,5 @@ function main() {
     function customPrint() {
         printf("called from func");
     }
+    customPrint();
 }

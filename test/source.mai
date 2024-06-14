@@ -8,4 +8,6 @@ fn main() {
     fn customPrint() {
         print("called from func");
     }
+
+    customPrint();
 }

@@ -1,11 +1,11 @@
 <?php
 function main() {
     $num1 = (int) 2;
-    printf("%s\n", $num1);
+    printf($num1);
     $text = (string) "Hi!";
-    printf("%s\n", $text);
-    function customPrint() {
-        printf("called from func");
+    printf($text);
+    function customPrint(string $arg, int $n) {
+        printf($n, $arg);
     }
-    customPrint();
+    customPrint("called from func", $num1);
 }

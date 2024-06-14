@@ -6,8 +6,10 @@ fn main() {
     string text = "Hi!";
     print(text);
 
-    fn customPrint() {
-        print("called from func");
+    fn customPrint(string arg, int n) {
+        print(n, arg);
     }
+
+    customPrint("called from func", num1);
 }
 `;

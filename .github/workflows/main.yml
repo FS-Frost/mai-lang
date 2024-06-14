@@ -22,6 +22,10 @@ jobs:
 
             - name: Build
               run: |
+                  bun test
+
+            - name: Build
+              run: |
                   bun run build
 
             - name: Change base-tag in index.html from / to mai-lang

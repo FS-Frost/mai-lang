@@ -5,8 +5,8 @@ func main() {
     println(num1)
     var text string = "Hi!"
     println(text)
-    customPrint := func() {
-        println("called from func")
+    customPrint := func(arg string, n int) {
+        println(n, arg)
     }
-    customPrint()
+    customPrint("called from func", num1)
 }

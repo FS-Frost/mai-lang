@@ -9,28 +9,62 @@
     let resultPHP: string = "";
     let errorMessage: string = "";
 
+    function parseGO(): void {
+        resultGO = "";
+
+        const filePath = "source.mai";
+        const lexer = new Lexer(filePath, source);
+        const [tokens, error] = lexer.tokenize();
+        if (error) {
+            console.error(error);
+            lexer.logLineError();
+            throw new Error(error);
+        }
+
+        console.log({ tokens });
+
+        const parser = new Parser(lexer);
+        resultGO = parser.parseTokens([...tokens], "go");
+    }
+
+    function parseJS(): void {
+        resultJS = "";
+
+        const filePath = "source.mai";
+        const lexer = new Lexer(filePath, source);
+        const [tokens, error] = lexer.tokenize();
+        if (error) {
+            console.error(error);
+            lexer.logLineError();
+            throw new Error(error);
+        }
+
+        const parser = new Parser(lexer);
+        resultJS = parser.parseTokens([...tokens], "js");
+    }
+
+    function parsePHP(): void {
+        resultPHP = "";
+
+        const filePath = "source.mai";
+        const lexer = new Lexer(filePath, source);
+        const [tokens, error] = lexer.tokenize();
+        if (error) {
+            console.error(error);
+            lexer.logLineError();
+            throw new Error(error);
+        }
+
+        const parser = new Parser(lexer);
+        resultPHP = parser.parseTokens([...tokens], "php");
+    }
+
     function parseSource(): void {
         try {
             errorMessage = "";
-            resultGO = "";
-            resultJS = "";
-            resultPHP = "";
-
-            const filePath = "source.mai";
-            const lexer = new Lexer(filePath, source);
-            const [tokens, error] = lexer.tokenize();
-            if (error) {
-                console.error(error);
-                lexer.logLineError();
-                throw new Error(error);
-            }
-
-            console.log({ tokens });
-
-            const parser = new Parser(lexer);
-            resultGO = parser.parseTokens([...tokens], "go");
-            resultJS = parser.parseTokens([...tokens], "js");
-            resultPHP = parser.parseTokens([...tokens], "php");
+            parseGO();
+            parseJS();
+            parsePHP();
         } catch (error) {
             console.error(error);
             errorMessage = `${error}`;

@@ -353,6 +353,11 @@ export class Lexer {
     }
 }
 
+type FuncArg = {
+    type: string;
+    name: string;
+};
+
 export class Parser {
     lexer: Lexer;
 
@@ -430,11 +435,21 @@ export class Parser {
         return token;
     }
 
-    assertString(expected: string, actual: string): void | never {
+    assertString(actual: string, expected: string): void | never {
         if (expected !== actual) {
             const msg = `expected string ${expected}, but got ${actual}`;
             throw new Error(msg);
         }
+    }
+
+    assertFuncArg(tokens: Token[]): FuncArg {
+        const tokenType = this.assertNextTokenName(tokens, TOKEN_TYPE);
+        const tokenName = this.assertNextTokenName(tokens, TOKEN_NAME);
+
+        return {
+            type: tokenType.value,
+            name: tokenName.value,
+        };
     }
 
     parseVariableDeclaration(tokens: Token[], lang: string): string {
@@ -489,6 +504,16 @@ export class Parser {
         return s;
     }
 
+    formatVar(text: string, lang: string): string {
+        switch (lang) {
+            case "php":
+                return "$" + text;
+
+            default:
+                return text;
+        }
+    }
+
     parseFunctionCall(tokens: Token[], lang: string): string {
         // name
         const tokenName = this.assertNextTokenName(tokens, TOKEN_NAME);
@@ -497,20 +522,34 @@ export class Parser {
         const tokenOparen = this.assertNextTokenName(tokens, TOKEN_LITERAL);
         this.assertString(tokenOparen.value, LITERAL_OPAREN);
 
-        // arg
-        const tokenArg = this.assertNextTokenName(tokens, TOKEN_NAME, TOKEN_INT, TOKEN_STRING, TOKEN_LITERAL);
-        if (tokenArg.name === TOKEN_STRING) {
-            tokenArg.value = `"${tokenArg.value}"`;
-        }
+        // args
+        let sArgs = "";
+        while (true) {
+            let tokenArg = this.assertNextTokenName(tokens, TOKEN_NAME, TOKEN_INT, TOKEN_STRING, TOKEN_LITERAL);
+            if (tokenArg.name === TOKEN_STRING) {
+                tokenArg.value = `"${tokenArg.value}"`;
+            }
+            else if (tokenArg.name === TOKEN_NAME) {
+                tokenArg.value = this.formatVar(tokenArg.value, lang);
+            }
 
-        const argProvided = tokenArg.name !== TOKEN_LITERAL && tokenArg.value !== LITERAL_CPAREN;
-        let arg = "";
-        if (argProvided) {
-            arg = tokenArg.value;
+            if (tokenArg.name === TOKEN_LITERAL && tokenArg.value === LITERAL_COMMA) {
+                continue;
+            }
 
-            // )
-            const tokenCparen = this.assertNextTokenName(tokens, TOKEN_LITERAL);
-            this.assertString(tokenCparen.value, LITERAL_CPAREN);
+            const isArg = [TOKEN_INT, TOKEN_STRING, TOKEN_NAME].includes(tokenArg.name);
+            if (isArg) {
+                if (sArgs.length > 0) {
+                    sArgs += ", ";
+                }
+
+                sArgs += tokenArg.value;
+                continue;
+            }
+
+            if (tokenArg.name === TOKEN_LITERAL && tokenArg.value === LITERAL_CPAREN) {
+                break;
+            }
         }
 
         // ;
@@ -521,35 +560,27 @@ export class Parser {
             case "print":
                 switch (lang) {
                     case "go":
-                        return `println(${arg})`;
+                        return `println(${sArgs})`;
 
 
                     case "php":
-                        if (tokenArg.name === TOKEN_NAME) {
-                            return `printf("%s\\n", $${arg});`;
-                        }
-
-                        return `printf(${arg});`;
+                        return `printf(${sArgs});`;
 
                     default:
-                        return `console.log(${arg});`;
+                        return `console.log(${sArgs});`;
                 }
 
             default:
                 switch (lang) {
                     case "go":
-                        return `${tokenName.value}(${arg})`;
+                        return `${tokenName.value}(${sArgs})`;
 
 
                     case "php":
-                        if (tokenArg.name === TOKEN_NAME) {
-                            return `${tokenName.value}("%s\\n", $${arg});`;
-                        }
-
-                        return `${tokenName.value}(${arg});`;
+                        return `${tokenName.value}(${sArgs});`;
 
                     default:
-                        return `${tokenName.value}(${arg});`;
+                        return `${tokenName.value}(${sArgs});`;
                 }
         }
     }
@@ -571,23 +602,91 @@ export class Parser {
         token = this.assertNextTokenName(tokens, TOKEN_NAME);
         const name = token.value;
         this.assertNextTokenLiteral(tokens, LITERAL_OPAREN);
+
+        const funcArgs: FuncArg[] = [];
+        while (true) {
+            token = tokens[0];
+            if (token.name === TOKEN_TYPE) {
+                const arg = this.assertFuncArg(tokens);
+                funcArgs.push(arg);
+            }
+
+            if (tokens.length === 0) {
+                break;
+            }
+
+            token = tokens[0];
+            if (token.name === TOKEN_LITERAL && token.value === LITERAL_COMMA) {
+                tokens.shift();
+                continue;
+            }
+
+            if (token.name === TOKEN_LITERAL && token.value === LITERAL_CPAREN) {
+                break;
+            }
+
+            if (token.type !== TOKEN_TYPE) {
+                break;
+            }
+        }
+
         this.assertNextTokenLiteral(tokens, LITERAL_CPAREN);
         this.assertNextTokenLiteral(tokens, LITERAL_OCURLY);
 
         let s = "";
         switch (lang) {
             case "go":
-                if (name === "main") {
-                    s += `func ${previousIndent}${name}() {\n`;
+                {
+                    if (name === "main") {
+                        s += `func ${previousIndent}${name}() {\n`;
+                        break;
+                    }
+
+                    let sArgs = "";
+                    for (let i = 0; i < funcArgs.length; i++) {
+                        if (i > 0) {
+                            sArgs += ", ";
+                        }
+
+                        const arg = funcArgs[i];
+                        sArgs += `${arg.name} ${arg.type}`;
+                    }
+
+                    s += `${previousIndent}${name} := func(${sArgs}) {\n`;
                     break;
                 }
 
-                s += `${previousIndent}${name} := func() {\n`;
-                break;
+            case "php":
+                {
+                    let sArgs = "";
+                    for (let i = 0; i < funcArgs.length; i++) {
+                        if (i > 0) {
+                            sArgs += ", ";
+                        }
 
-            default:
-                s += `${previousIndent}function ${name}() {\n`;
-                break;
+                        const arg = funcArgs[i];
+                        sArgs += `${arg.type} $${arg.name}`;
+                    }
+
+                    s += `${previousIndent}function ${name}(${sArgs}) {\n`;
+                    break;
+                }
+
+            case "js":
+                {
+                    let sArgs = "";
+                    for (let i = 0; i < funcArgs.length; i++) {
+                        if (i > 0) {
+                            sArgs += ", ";
+                        }
+
+                        const arg = funcArgs[i];
+                        sArgs += arg.name;
+                    }
+
+                    s += `${previousIndent}function ${name}(${sArgs}) {\n`;
+                    break;
+                }
         }
 
         while (tokens.length > 0) {

@@ -3,8 +3,8 @@ function main() {
     console.log(num1);
     const text = "Hi!";
     console.log(text);
-    function customPrint() {
-        console.log("called from func");
+    function customPrint(arg, n) {
+        console.log(n, arg);
     }
-    customPrint();
+    customPrint("called from func", num1);
 }

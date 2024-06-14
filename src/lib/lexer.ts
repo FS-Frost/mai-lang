@@ -405,15 +405,15 @@ export class Parser {
         return s;
     }
 
-    assertNextTokenName(tokens: Token[], ...tokenNames: string[]): Token | never {
+    assertNextTokenName(tokens: Token[], ...expectedTokenNames: string[]): Token | never {
         const token = tokens.shift() ?? null;
         if (!token) {
-            const msg = `expected ${tokenNames.join(", ")}, but got null`;
+            const msg = `expected ${expectedTokenNames.join(", ")}, but got null`;
             throw new Error(msg);
         }
 
-        if (!tokenNames.includes(token?.name ?? "")) {
-            const msg = `${token.location.display()}: expected ${tokenNames.join(", ")}, but got ${token.name}: ${token.value}`;
+        if (!expectedTokenNames.includes(token?.name ?? "")) {
+            const msg = `${token.location.display()}: expected ${expectedTokenNames.join(", ")}, but got ${token.name}: ${token.value}`;
             throw new Error(msg);
         }
 
@@ -457,31 +457,12 @@ export class Parser {
         const tokenName = this.assertNextTokenName(tokens, TOKEN_NAME);
         const tokenEquals = this.assertNextTokenName(tokens, TOKEN_LITERAL);
         this.assertString(tokenEquals.value, LITERAL_EQUALS);
+        const tokenValue = this.assertNextTokenName(tokens, TOKEN_INT, TOKEN_STRING);
+        if (tokenType.value === TYPE_STRING) {
+            tokenValue.value = `"${tokenValue.value}"`;
+        }
+
         let s = "";
-
-        switch (tokenType.value) {
-            case TYPE_STRING:
-                {
-                    const tokenValue = this.assertNextTokenName(tokens, TOKEN_STRING);
-                    switch (lang) {
-                        case "go":
-                            s = `var ${tokenName.value} ${tokenType.value} = "${tokenValue.value}"`;
-                            break;
-
-                        case "php":
-                            s = `$${tokenName.value} = (${tokenType.value}) "${tokenValue.value}";`;
-                            break;
-
-                        default:
-                            s = `const ${tokenName.value} = "${tokenValue.value}";`;
-                            break;
-                    }
-                    break;
-                }
-
-            default:
-                {
-                    const tokenValue = this.assertNextTokenName(tokens, TOKEN_INT);
                     switch (lang) {
                         case "go":
                             s = `var ${tokenName.value} ${tokenType.value} = ${tokenValue.value}`;
@@ -494,9 +475,6 @@ export class Parser {
                         default:
                             s = `const ${tokenName.value} = ${tokenValue.value};`;
                             break;
-                    }
-                    break;
-                }
         }
 
         const tokenSemicolon = this.assertNextTokenName(tokens, TOKEN_LITERAL);

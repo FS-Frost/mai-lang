@@ -12,7 +12,6 @@
     let errorMessage: string = "";
 
     function parseGO(): void {
-        editorGO.setValue("");
         const filePath = "source.mai";
         const lexer = new Lexer(filePath, source);
         const [tokens, error] = lexer.tokenize();
@@ -29,7 +28,6 @@
     }
 
     function parseJS(): void {
-        editorJS.setValue("");
         const filePath = "source.mai";
         const lexer = new Lexer(filePath, source);
         const [tokens, error] = lexer.tokenize();
@@ -45,7 +43,6 @@
     }
 
     function parsePHP(): void {
-        editorPHP.setValue("");
         const filePath = "source.mai";
         const lexer = new Lexer(filePath, source);
         const [tokens, error] = lexer.tokenize();
@@ -63,12 +60,18 @@
     function parseSource(): void {
         try {
             errorMessage = "";
+            editorPHP.setValue("");
+            editorGO.setValue("");
+            editorJS.setValue("");
             parseGO();
             parseJS();
             parsePHP();
         } catch (error) {
             console.error(error);
             errorMessage = `${error}`;
+            editorGO.setValue("// " + errorMessage);
+            editorJS.setValue("// " + errorMessage);
+            editorPHP.setValue("<?php\n// " + errorMessage);
         }
     }
 

@@ -1,13 +1,12 @@
 <script lang="ts">
     import loader from "@monaco-editor/loader";
+    import type { Monaco } from "@monaco-editor/loader";
     import type { editor } from "monaco-editor";
     import { createEventDispatcher } from "svelte";
 
-    type Monaco =
-        typeof import("../node_modules/monaco-editor/esm/vs/editor/editor.api");
-
     export let lang: string;
     export let value: string = "";
+    export let minimapEnabled: boolean = false;
     export let readonly: boolean = false;
 
     const dispatch = createEventDispatcher<{
@@ -56,6 +55,10 @@
             language: lang,
             theme: "vs-dark",
             readOnly: readonly,
+            wordWrap: "on",
+            minimap: {
+                enabled: minimapEnabled,
+            },
         });
 
         editor.onDidChangeModelContent(() => {

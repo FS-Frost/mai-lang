@@ -1,5 +1,5 @@
 function main() {
-    const num1 = 2;
+    const num1 = 1 + 2 * 3 / 4;
     console.log(num1);
     const text = "Hi!";
     console.log(text);

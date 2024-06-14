@@ -9,8 +9,11 @@ const LITERAL_CPAREN = ")";
 const LITERAL_OCURLY = "{";
 const LITERAL_CCURLY = "}";
 const LITERAL_EQUALS = "=";
-const LITERAL_DOUBLE_QUOTE = '"';
+const LITERAL_PLUS = "+";
+const LITERAL_MINUS = "-";
+const LITERAL_ASTERISK = "*";
 const LITERAL_BACK_SLASH = '/';
+const LITERAL_DOUBLE_QUOTE = '"';
 
 const TOKEN_COMMENT = "TOKEN_COMMENT";
 const TOKEN_TYPE = "TOKEN_TYPE";
@@ -243,7 +246,7 @@ export class Lexer {
         const location = this.location();
         const char = this.source[this.cursor];
 
-        if (char == LITERAL_BACK_SLASH) {
+        if (char === LITERAL_BACK_SLASH && this.source[this.cursor + 1] === LITERAL_BACK_SLASH) {
             if (this.isEmpty()) {
                 throw new Error("bad comment");
             }
@@ -320,6 +323,10 @@ export class Lexer {
             LITERAL_CPAREN,
             LITERAL_SEMICOLON,
             LITERAL_COMMA,
+            LITERAL_PLUS,
+            LITERAL_MINUS,
+            LITERAL_ASTERISK,
+            LITERAL_BACK_SLASH,
         ];
 
         if (literals.includes(char)) {
@@ -452,29 +459,97 @@ export class Parser {
         };
     }
 
+    logTokens(tokens: Token[]): void {
+        console.table(tokens.map(x => {
+            return {
+                name: x.name,
+                value: x.value,
+            };
+        }));
+    }
+
     parseVariableDeclaration(tokens: Token[], lang: string): string {
         const tokenType = this.assertNextTokenName(tokens, TOKEN_TYPE);
         const tokenName = this.assertNextTokenName(tokens, TOKEN_NAME);
         const tokenEquals = this.assertNextTokenName(tokens, TOKEN_LITERAL);
         this.assertString(tokenEquals.value, LITERAL_EQUALS);
-        const tokenValue = this.assertNextTokenName(tokens, TOKEN_INT, TOKEN_STRING);
-        if (tokenType.value === TYPE_STRING) {
-            tokenValue.value = `"${tokenValue.value}"`;
-        }
 
         let s = "";
-                    switch (lang) {
-                        case "go":
-                            s = `var ${tokenName.value} ${tokenType.value} = ${tokenValue.value}`;
-                            break;
+        switch (lang) {
+            case "go":
+                s = `var ${tokenName.value} ${tokenType.value} = `;
+                break;
 
-                        case "php":
-                            s = `$${tokenName.value} = (${tokenType.value}) ${tokenValue.value};`;
-                            break;
+            case "php":
+                s = `$${tokenName.value} = `;
+                break;
 
-                        default:
-                            s = `const ${tokenName.value} = ${tokenValue.value};`;
-                            break;
+            default:
+                s = `const ${tokenName.value} = `;
+                break;
+        }
+
+        let leftOperandToken: Token | null = null;
+        while (tokens.length > 0) {
+            const token = tokens[0];
+            if (token.name === TOKEN_LITERAL && token.value === LITERAL_SEMICOLON) {
+                break;
+            }
+
+            const values: string[] = [TOKEN_INT, TOKEN_STRING, TOKEN_NAME];
+            if (values.includes(token.name)) {
+                const tokenValue = this.assertNextTokenName(tokens, ...values);
+                if (tokenType.value === TYPE_STRING) {
+                    tokenValue.value = `"${tokenValue.value}"`;
+                }
+
+                s += tokenValue.value;
+                leftOperandToken = token;
+                continue;
+            }
+
+            const operators: string[] = [
+                LITERAL_PLUS,
+                LITERAL_MINUS,
+                LITERAL_ASTERISK,
+                LITERAL_BACK_SLASH,
+            ];
+
+            if (token.name === TOKEN_LITERAL && operators.includes(token.value)) {
+                const tokenOperator = token;
+                if (leftOperandToken == null) {
+                    throw new Error(`${token.location.display()} operator ${tokenOperator.value} found, but got no left operand`);
+                }
+
+                const nextToken = tokens[1];
+                if (
+                    leftOperandToken.name !== TOKEN_NAME &&
+                    nextToken != null &&
+                    nextToken.name !== TOKEN_NAME &&
+                    leftOperandToken.name !== nextToken.name
+
+                ) {
+                    throw new Error(`${token.location.display()} operator ${tokenOperator.value} with left operand of type ${leftOperandToken.name} (${leftOperandToken.value}) found, but got right operand with type ${nextToken.name} (${nextToken.value})`);
+                }
+
+                tokens.shift();
+                const tokenRightOperand = this.assertNextTokenName(tokens, TOKEN_NAME, leftOperandToken.name);
+                if (tokenRightOperand.value === TYPE_STRING) {
+                    tokenRightOperand.value = `"${tokenRightOperand.value}"`;
+                }
+
+                s += ` ${tokenOperator.value} ${tokenRightOperand.value}`;
+                continue;
+            }
+
+            tokens.shift();
+        }
+
+        switch (lang) {
+            case "php":
+            case "js":
+                s += LITERAL_SEMICOLON;
+                break;
         }
 
         const tokenSemicolon = this.assertNextTokenName(tokens, TOKEN_LITERAL);

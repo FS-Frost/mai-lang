@@ -1,7 +1,7 @@
 package main
 
 func main() {
-    var num1 int = 2
+    var num1 int = 1 + 2 * 3 / 4
     println(num1)
     var text string = "Hi!"
     println(text)

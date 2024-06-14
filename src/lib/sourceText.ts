@@ -1,6 +1,6 @@
 export const sourceText: string = `
 fn main() {
-    int num1 = 2;
+    int num1 = 1 + 2 * 3 / 4;
     print(num1);
 
     string text = "Hi!";

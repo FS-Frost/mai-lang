@@ -127,6 +127,7 @@
 <Editor
     bind:this={editor}
     lang="rust"
+    minimapEnabled
     on:change={(e) => updateCode(e.detail)}
 />
 

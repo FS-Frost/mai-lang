@@ -4,12 +4,12 @@
     import { onMount } from "svelte";
     import Editor from "../Editor.svelte";
 
-    let editor: Editor;
-    let editorGO: Editor;
-    let editorJS: Editor;
-    let editorPHP: Editor;
-    let source: string = sourceText;
-    let errorMessage: string = "";
+    let editor = $state<Editor>();
+    let editorGO = $state<Editor>();
+    let editorJS = $state<Editor>();
+    let editorPHP = $state<Editor>();
+    let source = $state<string>(sourceText);
+    let errorMessage = $state<string>("");
 
     function parseGO(): void {
         const filePath = "source.mai";
@@ -24,7 +24,7 @@
         console.log({ tokens });
         const parser = new Parser(lexer);
         const result = parser.parseTokens([...tokens], "go");
-        editorGO.setValue(result);
+        editorGO?.setValue(result);
     }
 
     function parseJS(): void {
@@ -39,7 +39,7 @@
 
         const parser = new Parser(lexer);
         const result = parser.parseTokens([...tokens], "js");
-        editorJS.setValue(result);
+        editorJS?.setValue(result);
     }
 
     function parsePHP(): void {
@@ -54,24 +54,24 @@
 
         const parser = new Parser(lexer);
         const result = parser.parseTokens([...tokens], "php");
-        editorPHP.setValue(result);
+        editorPHP?.setValue(result);
     }
 
     function parseSource(): void {
         try {
             errorMessage = "";
-            editorPHP.setValue("");
-            editorGO.setValue("");
-            editorJS.setValue("");
+            editorPHP?.setValue("");
+            editorGO?.setValue("");
+            editorJS?.setValue("");
             parseGO();
             parseJS();
             parsePHP();
         } catch (error) {
             console.error(error);
             errorMessage = `${error}`;
-            editorGO.setValue("// " + errorMessage);
-            editorJS.setValue("// " + errorMessage);
-            editorPHP.setValue("<?php\n// " + errorMessage);
+            editorGO?.setValue("// " + errorMessage);
+            editorJS?.setValue("// " + errorMessage);
+            editorPHP?.setValue("<?php\n// " + errorMessage);
         }
     }
 
@@ -81,7 +81,7 @@
     }
 
     onMount(async () => {
-        let editorInitError = await editor.init();
+        let editorInitError = (await editor?.init()) ?? "";
         if (editorInitError.length > 0) {
             const title = `ERROR: ${editorInitError}`;
             errorMessage = `${title}. Try reloading the page.`;
@@ -89,7 +89,7 @@
             return;
         }
 
-        editorInitError = await editorGO.init();
+        editorInitError = (await editorGO?.init()) ?? "";
         if (editorInitError.length > 0) {
             const title = `ERROR: ${editorInitError}`;
             errorMessage = `${title}. Try reloading the page.`;
@@ -97,7 +97,7 @@
             return;
         }
 
-        editorInitError = await editorJS.init();
+        editorInitError = (await editorJS?.init()) ?? "";
         if (editorInitError.length > 0) {
             const title = `ERROR: ${editorInitError}`;
             errorMessage = `${title}. Try reloading the page.`;
@@ -105,7 +105,7 @@
             return;
         }
 
-        editorInitError = await editorPHP.init();
+        editorInitError = (await editorPHP?.init()) ?? "";
         if (editorInitError.length > 0) {
             const title = `ERROR: ${editorInitError}`;
             errorMessage = `${title}. Try reloading the page.`;
@@ -115,7 +115,7 @@
 
         source = source.replace("\n", "");
         parseSource();
-        editor.setValue(source);
+        editor?.setValue(source);
     });
 </script>
 
@@ -131,23 +131,43 @@
     bind:this={editor}
     lang="rust"
     minimapEnabled
-    on:change={(e) => updateCode(e.detail)}
+    readonly={false}
+    value=""
+    onChange={(detail) => updateCode(detail)}
 />
 
 <div class="langs">
     <div class="lang">
         <label class="label" for="">Go</label>
-        <Editor bind:this={editorGO} lang="go" readonly />
+        <Editor
+            bind:this={editorGO}
+            value=""
+            minimapEnabled={false}
+            lang="go"
+            readonly
+        />
     </div>
 
     <div class="lang">
         <label class="label" for="">JavaScript</label>
-        <Editor bind:this={editorJS} lang="javascript" readonly />
+        <Editor
+            bind:this={editorJS}
+            value=""
+            minimapEnabled={false}
+            lang="javascript"
+            readonly
+        />
     </div>
 
     <div class="lang">
         <label class="label" for="">PHP</label>
-        <Editor bind:this={editorPHP} lang="php" readonly />
+        <Editor
+            bind:this={editorPHP}
+            value=""
+            minimapEnabled={false}
+            lang="php"
+            readonly
+        />
     </div>
 </div>
 

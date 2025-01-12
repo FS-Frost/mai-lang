@@ -1,21 +1,27 @@
 <script lang="ts">
     import loader from "@monaco-editor/loader";
     import type { Monaco } from "@monaco-editor/loader";
-    import type { editor } from "monaco-editor";
-    import { createEventDispatcher } from "svelte";
+    import type { editor as MonacoEditor } from "monaco-editor";
 
-    export let lang: string;
-    export let value: string = "";
-    export let minimapEnabled: boolean = false;
-    export let readonly: boolean = false;
+    type Props = {
+        lang: string;
+        value: string;
+        minimapEnabled: boolean;
+        readonly: boolean;
+        onChange?: (detail: string) => void;
+    };
 
-    const dispatch = createEventDispatcher<{
-        change: string;
-    }>();
+    let {
+        lang,
+        value,
+        minimapEnabled,
+        readonly,
+        onChange = () => {},
+    }: Props = $props();
 
     let divEditor: HTMLElement;
     let monaco: Monaco | null;
-    let editor: editor.IStandaloneCodeEditor;
+    let editor: MonacoEditor.IStandaloneCodeEditor;
 
     function getCurrentValue(): string {
         if (editor == null) {
@@ -63,14 +69,14 @@
 
         editor.onDidChangeModelContent(() => {
             value = getCurrentValue();
-            dispatch("change", value);
+            onChange(value);
         });
 
         return "";
     }
 </script>
 
-<div bind:this={divEditor} class="custom-editor" />
+<div bind:this={divEditor} class="custom-editor"></div>
 
 <style>
     .custom-editor {
